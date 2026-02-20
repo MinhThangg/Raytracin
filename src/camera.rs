@@ -86,29 +86,32 @@ impl Camera {
 }
 
 fn ray_color(r: &Ray, world: &dyn Hittable, depth: i32) -> Color {
-    if depth <= 0 {
-        return Color::new(0.0, 0.0, 0.0);
-    }
+    let mut total_attenuation = Color::new(1.0, 1.0, 1.0);
+    let mut current_depth = depth;
 
-    let mut hr = HitRecord::default();
-    if world.hit(r, 0.001, f32::INFINITY, &mut hr) {
-        let mut scattered = Ray::default();
-        let mut attenuation = Color::zero();
+    while current_depth > 0 {
+        let mut hr = HitRecord::default();
+        if world.hit(r, 0.001, f32::INFINITY, &mut hr) {
+            let mut scattered = Ray::default();
+            let mut attenuation = Color::zero();
 
-        match &hr.mat {
-            Some(mat) => {
+            if let Some(mat) = &hr.mat {
                 if mat.scatter(r, &hr, &mut attenuation, &mut scattered) {
+                    current_depth -= 1;
+                    total_attenuation = total_attenuation * attenuation;
                     return attenuation * ray_color(&scattered, world, depth - 1);
                 } else {
                     return Color::new(0.0, 0.0, 0.0);
                 }
             }
-            None => return Color::new(0.0, 0.0, 0.0),
+            return Color::new(0.0, 0.0, 0.0);
         }
+
+        let dir_norm = r.direction.normalized();
+        let a = 0.5 * (dir_norm.y + 1.0);
+        let sky_color = Color::new(1.0, 1.0, 1.0) * (1.0 - a) + Color::new(0.5, 0.7, 1.0) * a;
+        return sky_color * total_attenuation;
     }
 
-    let dir_norm = r.direction.normalized();
-    let a = 0.5 * (dir_norm.y + 1.0);
-
-    Color::new(1.0, 1.0, 1.0) * (1.0 - a) + Color::new(0.5, 0.7, 1.0) * a
+    Color::new(0.0, 0.0, 0.0)
 }
