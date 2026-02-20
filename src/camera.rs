@@ -7,8 +7,8 @@ use crate::{
     object::{HitRecord, Hittable},
 };
 
-const IMAGE_WIDTH: i32 = 1920;
-const IMAGE_HEIGHT: i32 = 1080;
+const IMAGE_WIDTH: i32 = 800;
+const IMAGE_HEIGHT: i32 = 800;
 
 const FOCAL_LENGTH: f32 = 1.0;
 const VIEWPORT_HEIGHT: f32 = 2.0;
@@ -44,8 +44,8 @@ impl Camera {
             center: camera_center,
             image_width: IMAGE_WIDTH,
             image_height: IMAGE_HEIGHT,
-            sample_per_pixel: 400,
-            max_depth: 20,
+            sample_per_pixel: 20,
+            max_depth: 10,
             pixel00_loc,
             pixel_delta_u,
             pixel_delta_v,
@@ -71,40 +71,6 @@ impl Camera {
                 }
             });
 
-        /*
-        (0..self.image_height).into_par_iter()
-            .map(|j| (0..self.image_width).into_iter()
-                .map(|i|  {
-
-                    let mut rng = rand::rng();
-                    let mut color = Color::zero();
-                    for _ in 0..self.sample_per_pixel {
-                        let ray = self.get_ray(i, j, &mut rng);
-                        color = color + ray_color(&ray, world.as_ref(), self.max_depth);
-                    }
-                    color
-                })
-                .collect()
-            ).collect()
-        */
-
-        /*
-        let mut image = vec![];
-        for j in 0..IMAGE_HEIGHT {
-            let mut row = vec![];
-            for i in 0..IMAGE_WIDTH {
-                let mut color = Color::zero();
-                for _ in 0..self.sample_per_pixel {
-                    let ray = self.get_ray(i, j);
-                    color = color + ray_color(&ray, world.as_ref(), self.max_depth);
-                }
-                color = color * (1.0/self.sample_per_pixel as f32);
-                row.push(color);
-            }
-            image.push(row);
-        }
-        image
-        */
         pixels
     }
 
@@ -139,9 +105,6 @@ fn ray_color(r: &Ray, world: &dyn Hittable, depth: i32) -> Color {
             }
             None => return Color::new(0.0, 0.0, 0.0),
         }
-
-        //return ray_color(&Ray::new(hr.p, direction), world, depth - 1) * 0.5;
-        //return Color::new(hr.normal.x + 1.0, hr.normal.y + 1.0, hr.normal.z + 1.0) * 0.5;
     }
 
     let dir_norm = r.direction.normalized();

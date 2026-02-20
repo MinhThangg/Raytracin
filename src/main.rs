@@ -25,7 +25,7 @@ fn main() {
     .unwrap();
 
     let lamb1 = Arc::new(Lambertian::new(Color::new(0.8, 0.8, 0.1)));
-    let metal1 = Arc::new(Metal::new(Color::new(0.5, 0.5, 0.5), 0.5));
+    let metal1 = Arc::new(Metal::new(Color::new(0.5, 0.5, 0.5), 0.25));
 
     let mut world = HittableList::new();
     world.add(Sphere::new(Vec3::new(0.0, 0.0, -1.0), 0.5, lamb1.clone()));
