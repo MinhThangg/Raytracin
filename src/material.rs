@@ -47,7 +47,7 @@ impl Material for Lambertian {
         let direction = hr.normal + Vec3::random_on_hemisphere(&hr.normal);
         *scattered = Ray::new(hr.p, direction);
         *attenuation = self.albedo;
-        return true;
+        true
     }
 }
 
@@ -65,6 +65,7 @@ impl Material for Metal {
 
         *scattered = Ray::new(hr.p, reflected);
         *attenuation = self.albedo;
-        return (scattered.direction.dot(&hr.normal) > 0.0);
+
+        scattered.direction.dot(&hr.normal) > 0.0
     }
 }

@@ -29,13 +29,13 @@ impl Camera {
     pub fn new() -> Self {
         let camera_center: Vec3 = Vec3::zero();
 
-        let viewport_u = Vec3::new(VIEWPORT_WIDTH as f32, 0.0, 0.0);
-        let viewport_v = Vec3::new(0.0, -VIEWPORT_HEIGHT as f32, 0.0);
+        let viewport_u = Vec3::new(VIEWPORT_WIDTH, 0.0, 0.0);
+        let viewport_v = Vec3::new(0.0, -VIEWPORT_HEIGHT, 0.0);
 
         let pixel_delta_u = viewport_u * (1.0 / IMAGE_WIDTH as f32);
         let pixel_delta_v = viewport_v * (1.0 / IMAGE_HEIGHT as f32);
         let viewport_upper_left = camera_center
-            - Vec3::new(0.0, 0.0, FOCAL_LENGTH as f32)
+            - Vec3::new(0.0, 0.0, FOCAL_LENGTH)
             - (viewport_u * 0.5)
             - (viewport_v * 0.5);
         let pixel00_loc = viewport_upper_left + (pixel_delta_u + pixel_delta_v) * 0.5;
@@ -109,5 +109,6 @@ fn ray_color(r: &Ray, world: &dyn Hittable, depth: i32) -> Color {
 
     let dir_norm = r.direction.normalized();
     let a = 0.5 * (dir_norm.y + 1.0);
-    return Color::new(1.0, 1.0, 1.0) * (1.0 - a) + Color::new(0.5, 0.7, 1.0) * a;
+
+    Color::new(1.0, 1.0, 1.0) * (1.0 - a) + Color::new(0.5, 0.7, 1.0) * a
 }

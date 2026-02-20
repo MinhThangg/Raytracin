@@ -17,25 +17,22 @@ pub struct Ray {
 
 impl Ray {
     pub const fn new(origin: Vec3, direction: Vec3) -> Self {
-        Self {
-            origin: origin,
-            direction: direction,
-        }
+        Self { origin, direction }
     }
 }
 
 #[allow(unused)]
 impl Vec3 {
     pub fn zero() -> Self {
-        return Self {
+        Self {
             x: 0.0,
             y: 0.0,
             z: 0.0,
-        };
+        }
     }
 
     pub const fn new(x: f32, y: f32, z: f32) -> Self {
-        return Self { x: x, y: y, z: z };
+        Self { x, y, z }
     }
 
     pub fn dot(&self, other: &Vec3) -> f32 {
@@ -157,5 +154,5 @@ impl ops::Mul<f32> for Vec3 {
 }
 
 pub fn linear_to_gamma(x: f32) -> f32 {
-    if x > 0.0 { return x.sqrt() } else { 0.0 }
+    if x > 0.0 { x.sqrt() } else { 0.0 }
 }

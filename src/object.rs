@@ -44,9 +44,9 @@ impl HitRecord {
     fn set_face_normal(&mut self, r: &Ray, outward_normal: &Vec3) {
         self.front_face = r.direction.dot(outward_normal) < 0.0;
         self.normal = if self.front_face {
-            outward_normal.clone()
+            *outward_normal
         } else {
-            outward_normal.clone() * -1.0
+            *outward_normal * -1.0
         };
     }
 }
@@ -56,7 +56,7 @@ impl Sphere {
         Self {
             center,
             radius,
-            material: material,
+            material,
         }
     }
 }
@@ -89,7 +89,7 @@ impl Hittable for Sphere {
         hit_record.set_face_normal(r, &outward_normal);
         hit_record.mat = Some(self.material.clone());
 
-        return true;
+        true
     }
 }
 

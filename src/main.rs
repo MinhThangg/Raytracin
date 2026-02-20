@@ -15,7 +15,7 @@ use crate::object::{HittableList, Sphere};
 fn main() {
     let camera = Camera::new();
     let mut file = File::create("image.ppm").unwrap();
-    file.write(
+    file.write_all(
         format!(
             "P3\n{} {} {}\n",
             camera.image_width, camera.image_height, 255
@@ -59,6 +59,6 @@ fn print_color(file: &mut File, c: &Color) {
     let gbyte = (g * 256.0) as i32;
     let bbyte = (b * 256.0) as i32;
 
-    file.write(format!("{} {} {}\n", rbyte, gbyte, bbyte).as_bytes())
+    file.write_all(format!("{} {} {}\n", rbyte, gbyte, bbyte).as_bytes())
         .unwrap();
 }
