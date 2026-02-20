@@ -15,6 +15,7 @@ use crate::object::{HittableList, Sphere};
 fn main() {
     let camera = Camera::new();
     let mut file = File::create("image.ppm").unwrap();
+
     file.write_all(
         format!(
             "P6\n{} {} {}\n",
@@ -40,24 +41,24 @@ fn main() {
 
     let image = camera.render(shared_world);
 
-    for i in 0..camera.image_height * camera.image_width {
-        let color: &Color = image.get(i as usize).unwrap();
-        print_color(&mut file, color);
-    }
-}
+    let image_bytes: Vec<u8> = image
+        .iter()
+        .flat_map(|c| {
+            let mut r = c.x.clamp(0.0, 0.99999);
+            let mut g = c.y.clamp(0.0, 0.99999);
+            let mut b = c.z.clamp(0.0, 0.99999);
 
-fn print_color(file: &mut File, c: &Color) {
-    let mut r = c.x.clamp(0.0, 0.99999);
-    let mut g = c.y.clamp(0.0, 0.99999);
-    let mut b = c.z.clamp(0.0, 0.99999);
+            r = math::linear_to_gamma(r);
+            g = math::linear_to_gamma(g);
+            b = math::linear_to_gamma(b);
 
-    r = math::linear_to_gamma(r);
-    g = math::linear_to_gamma(g);
-    b = math::linear_to_gamma(b);
+            let rbyte = (r * 256.0) as u8;
+            let gbyte = (g * 256.0) as u8;
+            let bbyte = (b * 256.0) as u8;
 
-    let rbyte = (r * 256.0) as u8;
-    let gbyte = (g * 256.0) as u8;
-    let bbyte = (b * 256.0) as u8;
+            vec![rbyte, gbyte, bbyte]
+        })
+        .collect();
 
-    file.write_all(&[rbyte, gbyte, bbyte]).unwrap();
+    file.write_all(image_bytes.as_slice()).unwrap();
 }
