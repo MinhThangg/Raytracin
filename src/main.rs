@@ -14,16 +14,6 @@ use crate::object::{HittableList, Sphere};
 
 fn main() {
     let camera = Camera::new();
-    let mut file = File::create("image.ppm").unwrap();
-
-    file.write_all(
-        format!(
-            "P6\n{} {} {}\n",
-            camera.image_width, camera.image_height, 255
-        )
-        .as_bytes(),
-    )
-    .unwrap();
 
     let lamb1 = Arc::new(Lambertian::new(Color::new(0.8, 0.8, 0.1)));
     let metal1 = Arc::new(Metal::new(Color::new(0.5, 0.5, 0.5), 0.25));
@@ -56,9 +46,20 @@ fn main() {
             let gbyte = (g * 256.0) as u8;
             let bbyte = (b * 256.0) as u8;
 
-            vec![rbyte, gbyte, bbyte]
+            [rbyte, gbyte, bbyte]
         })
         .collect();
+
+    let mut file = File::create("image.ppm").unwrap();
+
+    file.write_all(
+        format!(
+            "P6\n{} {} {}\n",
+            camera.image_width, camera.image_height, 255
+        )
+        .as_bytes(),
+    )
+    .unwrap();
 
     file.write_all(image_bytes.as_slice()).unwrap();
 }

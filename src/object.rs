@@ -76,9 +76,10 @@ impl Hittable for Sphere {
         let dsqrt = discriminant.sqrt();
 
         let mut root = (b - dsqrt) / a;
-        if root <= ray_tmin || root >= ray_tmax {
+        let t_range = ray_tmin..ray_tmax;
+        if !t_range.contains(&root) {
             root = (b + dsqrt) / a;
-            if root <= ray_tmin || root >= ray_tmax {
+            if !t_range.contains(&root) {
                 return false;
             }
         }
