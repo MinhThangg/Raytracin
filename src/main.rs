@@ -17,7 +17,7 @@ fn main() {
     let mut file = File::create("image.ppm").unwrap();
     file.write_all(
         format!(
-            "P3\n{} {} {}\n",
+            "P6\n{} {} {}\n",
             camera.image_width, camera.image_height, 255
         )
         .as_bytes(),
@@ -55,10 +55,9 @@ fn print_color(file: &mut File, c: &Color) {
     g = math::linear_to_gamma(g);
     b = math::linear_to_gamma(b);
 
-    let rbyte = (r * 256.0) as i32;
-    let gbyte = (g * 256.0) as i32;
-    let bbyte = (b * 256.0) as i32;
+    let rbyte = (r * 256.0) as u8;
+    let gbyte = (g * 256.0) as u8;
+    let bbyte = (b * 256.0) as u8;
 
-    file.write_all(format!("{} {} {}\n", rbyte, gbyte, bbyte).as_bytes())
-        .unwrap();
+    file.write_all(&[rbyte, gbyte, bbyte]).unwrap();
 }
