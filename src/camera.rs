@@ -1,11 +1,14 @@
-use std::sync::Arc;
-use rand::{Rng, RngExt, SeedableRng, rng, rngs::{SmallRng, ThreadRng}};
+use rand::{RngExt, SeedableRng, rngs::SmallRng};
 use rayon::prelude::*;
+use std::sync::Arc;
 
-use crate::{math::{Color, Ray, Vec3}, object::{HitRecord, Hittable}};
+use crate::{
+    math::{Color, Ray, Vec3},
+    object::{HitRecord, Hittable},
+};
 
-const IMAGE_WIDTH: i32 = 800;
-const IMAGE_HEIGHT: i32 = 800;
+const IMAGE_WIDTH: i32 = 1920;
+const IMAGE_HEIGHT: i32 = 1080;
 
 const FOCAL_LENGTH: f32 = 1.0;
 const VIEWPORT_HEIGHT: f32 = 2.0;
@@ -41,8 +44,8 @@ impl Camera {
             center: camera_center,
             image_width: IMAGE_WIDTH,
             image_height: IMAGE_HEIGHT,
-            sample_per_pixel: 8,
-            max_depth: 10,
+            sample_per_pixel: 400,
+            max_depth: 20,
             pixel00_loc,
             pixel_delta_u,
             pixel_delta_v,
@@ -52,20 +55,21 @@ impl Camera {
     pub fn render(&self, world: Arc<dyn Hittable>) -> Vec<Color> {
         let mut pixels = vec![Color::zero(); (self.image_width * self.image_height) as usize];
 
-        pixels.par_chunks_mut(self.image_width as usize)
-                .enumerate()
-                .for_each(|(j, row)| {
-                    let mut rng = SmallRng::seed_from_u64(j as u64);
+        pixels
+            .par_chunks_mut(self.image_width as usize)
+            .enumerate()
+            .for_each(|(j, row)| {
+                let mut rng = SmallRng::seed_from_u64(j as u64);
 
-                    for i in 0..self.image_width {
-                        let mut color = Color::zero();
-                        for _ in 0..self.sample_per_pixel {
-                            let ray = self.get_ray(i, j as i32, &mut rng);
-                            color = color + ray_color(&ray, world.as_ref(), self.max_depth);
-                        }
-                        row[i as usize] = color * (1.0 / self.sample_per_pixel as f32);
+                for i in 0..self.image_width {
+                    let mut color = Color::zero();
+                    for _ in 0..self.sample_per_pixel {
+                        let ray = self.get_ray(i, j as i32, &mut rng);
+                        color = color + ray_color(&ray, world.as_ref(), self.max_depth);
                     }
-                });
+                    row[i as usize] = color * (1.0 / self.sample_per_pixel as f32);
+                }
+            });
 
         /*
         (0..self.image_height).into_par_iter()
@@ -84,7 +88,7 @@ impl Camera {
             ).collect()
         */
 
-            /*
+        /*
         let mut image = vec![];
         for j in 0..IMAGE_HEIGHT {
             let mut row = vec![];
@@ -102,7 +106,6 @@ impl Camera {
         image
         */
         pixels
-
     }
 
     fn get_ray(&self, i: i32, j: i32, rng: &mut SmallRng) -> Ray {
@@ -114,9 +117,7 @@ impl Camera {
         let ray_direction = pixel_center - self.center;
         Ray::new(self.center, ray_direction)
     }
-
 }
-
 
 fn ray_color(r: &Ray, world: &dyn Hittable, depth: i32) -> Color {
     if depth <= 0 {
@@ -129,13 +130,13 @@ fn ray_color(r: &Ray, world: &dyn Hittable, depth: i32) -> Color {
         let mut attenuation = Color::zero();
 
         match &hr.mat {
-            Some(mat) =>  {
+            Some(mat) => {
                 if mat.scatter(r, &hr, &mut attenuation, &mut scattered) {
                     return attenuation * ray_color(&scattered, world, depth - 1);
                 } else {
                     return Color::new(0.0, 0.0, 0.0);
                 }
-            },
+            }
             None => return Color::new(0.0, 0.0, 0.0),
         }
 

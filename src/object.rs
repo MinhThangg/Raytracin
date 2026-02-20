@@ -1,6 +1,9 @@
-use std::{rc::Rc, sync::Arc};
+use std::sync::Arc;
 
-use crate::{material::{self, Material}, math::{Ray, Vec3}};
+use crate::{
+    material::Material,
+    math::{Ray, Vec3},
+};
 
 #[derive(Default, Clone)]
 pub struct HitRecord {
@@ -10,7 +13,6 @@ pub struct HitRecord {
     pub front_face: bool,
     pub mat: Option<Arc<dyn Material>>,
 }
-
 
 pub struct Sphere {
     pub center: Vec3,
@@ -22,13 +24,15 @@ pub struct HittableList {
     objects: Vec<Box<dyn Hittable>>,
 }
 
-pub trait Hittable : Sync + Send {
+pub trait Hittable: Sync + Send {
     fn hit(&self, r: &Ray, ray_tmin: f32, ray_tmax: f32, hit_record: &mut HitRecord) -> bool;
 }
 
 impl HittableList {
     pub fn new() -> Self {
-        Self { objects: Vec::new() }
+        Self {
+            objects: Vec::new(),
+        }
     }
 
     pub fn add(&mut self, object: impl Hittable + 'static) {
@@ -65,10 +69,11 @@ impl Hittable for Sphere {
         let c = oc.length_squared() - (self.radius * self.radius);
         let discriminant = (b * b) - (a * c);
 
-        if discriminant < 0.0 { return false; }
+        if discriminant < 0.0 {
+            return false;
+        }
 
         let dsqrt = discriminant.sqrt();
-
 
         let mut root = (b - dsqrt) / a;
         if root <= ray_tmin || root >= ray_tmax {
@@ -80,7 +85,7 @@ impl Hittable for Sphere {
 
         hit_record.t = root;
         hit_record.p = r.at(root);
-        let outward_normal = (hit_record.p - self.center) * (1.0/self.radius);
+        let outward_normal = (hit_record.p - self.center) * (1.0 / self.radius);
         hit_record.set_face_normal(r, &outward_normal);
         hit_record.mat = Some(self.material.clone());
 

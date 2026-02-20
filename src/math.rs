@@ -15,11 +15,6 @@ pub struct Ray {
     pub direction: Vec3,
 }
 
-pub struct Interval {
-    min: f32,
-    max: f32,
-}
-
 impl Ray {
     pub const fn new(origin: Vec3, direction: Vec3) -> Self {
         Self {
@@ -65,7 +60,11 @@ impl Vec3 {
     }
 
     pub fn random(min: f32, max: f32) -> Self {
-        Self::new(rand::random_range(min..=max), rand::random_range(min..=max), rand::random_range(min..=max))
+        Self::new(
+            rand::random_range(min..=max),
+            rand::random_range(min..=max),
+            rand::random_range(min..=max),
+        )
     }
 
     pub fn random_unit() -> Self {
@@ -87,7 +86,6 @@ impl Vec3 {
         } else {
             unit_sphere * -1.0
         }
-
     }
 }
 
@@ -95,29 +93,6 @@ impl Vec3 {
 impl Ray {
     pub fn at(&self, t: f32) -> Vec3 {
         self.origin + (t * self.direction)
-    }
-}
-
-impl Interval {
-    pub const fn new(min: f32, max: f32) -> Self {
-        Self {
-            min: min,
-            max: max,
-        }
-    }
-
-    pub fn surrounds(&self, x: f32) -> bool {
-        return x > self.min && x < self.max;
-    }
-
-    pub fn clamp(&self, x: f32) -> f32 {
-        if x < self.min {
-            self.min
-        } else if x > self.max {
-            self.max
-        } else {
-            x
-        }
     }
 }
 
@@ -181,11 +156,6 @@ impl ops::Mul<f32> for Vec3 {
     }
 }
 
-
 pub fn linear_to_gamma(x: f32) -> f32 {
-    if x > 0.0 {
-        return x.sqrt()
-    } else {
-        0.0
-    }
+    if x > 0.0 { return x.sqrt() } else { 0.0 }
 }
