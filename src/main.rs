@@ -4,62 +4,71 @@ mod math;
 mod object;
 
 use std::fs::File;
-use std::io::Write;
-use std::sync::Arc;
+use std::io::BufWriter;
+use std::sync::atomic::AtomicUsize;
 
 use crate::camera::Camera;
-use crate::material::{Lambertian, Metal};
-use crate::math::{Color, Vec3};
-use crate::object::{HittableList, Sphere};
+use crate::material::{Lambertian, MaterialKind, Metal};
+use crate::math::{linear_to_gamma, Color, Vec3};
+use crate::object::{HittableList, Object, Sphere};
+use image::{ImageBuffer, Rgb};
 
 fn main() {
     let camera = Camera::new();
 
-    let lamb1 = Arc::new(Lambertian::new(Color::new(0.8, 0.8, 0.1)));
-    let metal1 = Arc::new(Metal::new(Color::new(0.5, 0.5, 0.5), 0.25));
 
     let mut world = HittableList::new();
-    world.add(Sphere::new(Vec3::new(0.0, 0.0, -1.0), 0.5, lamb1.clone()));
-    world.add(Sphere::new(Vec3::new(1.0, 0.0, -1.0), 0.6, metal1.clone()));
-    world.add(Sphere::new(
+
+    let lamb1 = world.add_material(MaterialKind::Lambertian(Lambertian::new(Color::new(
+        1.0, 1.0, 0.0,
+    ))));
+    let lamb2 = world.add_material(MaterialKind::Lambertian(Lambertian::new(Color::new(
+        1.0, 1.0, 1.0,
+    ))));
+    let metal1 = world.add_material(MaterialKind::Metal(Metal::new(
+        Color::new(0.5, 0.5, 0.5),
+        0.0,
+    )));
+
+    world.add(Object::Sphere(Sphere::new(
+        Vec3::new(0.0, 0.0, -1.0),
+        0.5,
+        lamb1,
+    )));
+    world.add(Object::Sphere(Sphere::new(
+        Vec3::new(1.0, 0.0, -1.0),
+        0.6,
+        metal1,
+    )));
+    world.add(Object::Sphere(Sphere::new(
         Vec3::new(0.0, -100.5, -1.0),
         100.0,
-        lamb1.clone(),
-    ));
+        lamb2,
+    )));
+    // test
 
-    let shared_world = Arc::new(world);
+    let progress = AtomicUsize::new(0);
+    let image = camera.render(&world, Some(&progress));
 
-    let image = camera.render(shared_world);
+    let mut buffer = Vec::with_capacity((camera.image_width * camera.image_height * 3) as usize);
+    for c in &image {
+        let r = (linear_to_gamma(c.x.clamp(0.0, 0.99999)) * 256.0) as u8;
+        let g = (linear_to_gamma(c.y.clamp(0.0, 0.99999)) * 256.0) as u8;
+        let b = (linear_to_gamma(c.z.clamp(0.0, 0.99999)) * 256.0) as u8;
+        buffer.extend_from_slice(&[r, g, b]);
+    }
 
-    let image_bytes: Vec<u8> = image
-        .iter()
-        .flat_map(|c| {
-            let mut r = c.x.clamp(0.0, 0.99999);
-            let mut g = c.y.clamp(0.0, 0.99999);
-            let mut b = c.z.clamp(0.0, 0.99999);
-
-            r = math::linear_to_gamma(r);
-            g = math::linear_to_gamma(g);
-            b = math::linear_to_gamma(b);
-
-            let rbyte = (r * 256.0) as u8;
-            let gbyte = (g * 256.0) as u8;
-            let bbyte = (b * 256.0) as u8;
-
-            [rbyte, gbyte, bbyte]
-        })
-        .collect();
-
-    let mut file = File::create("image.ppm").unwrap();
-
-    file.write_all(
-        format!(
-            "P6\n{} {} {}\n",
-            camera.image_width, camera.image_height, 255
-        )
-        .as_bytes(),
+    let image = ImageBuffer::<Rgb<u8>, _>::from_raw(
+        camera.image_width as u32,
+        camera.image_height as u32,
+        buffer,
     )
     .unwrap();
 
-    file.write_all(image_bytes.as_slice()).unwrap();
+    let file = File::create("image.png").unwrap();
+    let mut writer = BufWriter::new(file);
+    image
+        .write_to(&mut writer, image::ImageFormat::Png)
+        .unwrap();
+
 }

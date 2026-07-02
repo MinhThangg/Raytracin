@@ -1,42 +1,71 @@
-use std::sync::Arc;
-
 use crate::{
-    material::Material,
+    material::MaterialKind,
     math::{Ray, Vec3},
 };
 
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Copy)]
 pub struct HitRecord {
     pub p: Vec3,
     pub normal: Vec3,
     pub t: f32,
     pub front_face: bool,
-    pub mat: Option<Arc<dyn Material>>,
+    pub mat_idx: u32,
 }
 
+#[derive(Clone, Copy)]
 pub struct Sphere {
     pub center: Vec3,
     pub radius: f32,
-    pub material: Arc<dyn Material>,
+    pub mat_idx: u32,
+}
+
+#[derive(Clone, Copy)]
+pub enum Object {
+    Sphere(Sphere),
 }
 
 pub struct HittableList {
-    objects: Vec<Box<dyn Hittable>>,
-}
-
-pub trait Hittable: Sync + Send {
-    fn hit(&self, r: &Ray, ray_tmin: f32, ray_tmax: f32, hit_record: &mut HitRecord) -> bool;
+    objects: Vec<Object>,
+    materials: Vec<MaterialKind>,
 }
 
 impl HittableList {
     pub fn new() -> Self {
         Self {
             objects: Vec::new(),
+            materials: Vec::new(),
         }
     }
 
-    pub fn add(&mut self, object: impl Hittable + 'static) {
-        self.objects.push(Box::new(object));
+    pub fn add(&mut self, object: Object) {
+        self.objects.push(object);
+    }
+
+    /// Enregistre un matériau et retourne son index, à passer à `Sphere::new`.
+    pub fn add_material(&mut self, material: MaterialKind) -> u32 {
+        let idx = self.materials.len() as u32;
+        self.materials.push(material);
+        idx
+    }
+
+    pub fn material(&self, idx: u32) -> &MaterialKind {
+        &self.materials[idx as usize]
+    }
+
+    pub fn hit(&self, r: &Ray, ray_tmin: f32, ray_tmax: f32, hit_record: &mut HitRecord) -> bool {
+        let mut temp_rec = HitRecord::default();
+        let mut has_hit_anything = false;
+        let mut closest_so_far = ray_tmax;
+
+        for object in &self.objects {
+            if object.hit(r, ray_tmin, closest_so_far, &mut temp_rec) {
+                has_hit_anything = true;
+                closest_so_far = temp_rec.t;
+                *hit_record = temp_rec;
+            }
+        }
+
+        has_hit_anything
     }
 }
 
@@ -52,22 +81,20 @@ impl HitRecord {
 }
 
 impl Sphere {
-    pub fn new(center: Vec3, radius: f32, material: Arc<dyn Material>) -> Self {
+    pub fn new(center: Vec3, radius: f32, mat_idx: u32) -> Self {
         Self {
             center,
             radius,
-            material,
+            mat_idx,
         }
     }
-}
 
-impl Hittable for Sphere {
-    fn hit(&self, r: &Ray, ray_tmin: f32, ray_tmax: f32, hit_record: &mut HitRecord) -> bool {
+    pub fn hit(&self, r: &Ray, ray_tmin: f32, ray_tmax: f32, hit_record: &mut HitRecord) -> bool {
         let oc = self.center - r.origin;
         let a = r.direction.length_squared();
-        let b = r.direction.dot(&oc);
+        let half_b = r.direction.dot(&oc);
         let c = oc.length_squared() - (self.radius * self.radius);
-        let discriminant = (b * b) - (a * c);
+        let discriminant = (half_b * half_b) - (a * c);
 
         if discriminant < 0.0 {
             return false;
@@ -75,10 +102,10 @@ impl Hittable for Sphere {
 
         let dsqrt = discriminant.sqrt();
 
-        let mut root = (b - dsqrt) / a;
+        let mut root = (half_b - dsqrt) / a;
         let t_range = ray_tmin..ray_tmax;
         if !t_range.contains(&root) {
-            root = (b + dsqrt) / a;
+            root = (half_b + dsqrt) / a;
             if !t_range.contains(&root) {
                 return false;
             }
@@ -88,26 +115,16 @@ impl Hittable for Sphere {
         hit_record.p = r.at(root);
         let outward_normal = (hit_record.p - self.center) * (1.0 / self.radius);
         hit_record.set_face_normal(r, &outward_normal);
-        hit_record.mat = Some(self.material.clone());
+        hit_record.mat_idx = self.mat_idx;
 
         true
     }
 }
 
-impl Hittable for HittableList {
-    fn hit(&self, r: &Ray, ray_tmin: f32, ray_tmax: f32, hit_record: &mut HitRecord) -> bool {
-        let mut temp_rec = HitRecord::default();
-        let mut has_hit_anything: bool = false;
-        let mut closest_so_far = ray_tmax;
-
-        for o in &self.objects {
-            if o.hit(r, ray_tmin, closest_so_far, &mut temp_rec) {
-                has_hit_anything = true;
-                closest_so_far = temp_rec.t;
-                *hit_record = temp_rec.clone();
-            }
+impl Object {
+    pub fn hit(&self, r: &Ray, ray_tmin: f32, ray_tmax: f32, hit_record: &mut HitRecord) -> bool {
+        match self {
+            Object::Sphere(sphere) => sphere.hit(r, ray_tmin, ray_tmax, hit_record),
         }
-
-        has_hit_anything
     }
 }

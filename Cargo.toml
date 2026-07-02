@@ -6,3 +6,4 @@ edition = "2024"
 [dependencies]
 rand = "0.10.*"
 rayon = "1.11.*"
+image = { version = "0.25.*", default-features = false, features = ["png"] }

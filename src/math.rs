@@ -1,3 +1,4 @@
+use rand::{rngs::SmallRng, RngExt};
 use std::ops;
 
 pub type Color = Vec3;
@@ -56,33 +57,26 @@ impl Vec3 {
         }
     }
 
-    pub fn random(min: f32, max: f32) -> Self {
+    pub fn random(rng: &mut SmallRng, min: f32, max: f32) -> Self {
         Self::new(
-            rand::random_range(min..=max),
-            rand::random_range(min..=max),
-            rand::random_range(min..=max),
+            rng.random_range(min..=max),
+            rng.random_range(min..=max),
+            rng.random_range(min..=max),
         )
     }
 
-    pub fn random_unit() -> Self {
-        loop {
-            let p = Self::random(-1.0, 1.0);
-            let lensqr = p.length_squared();
-
-            if 1e-160 < lensqr && lensqr <= 1.0 {
-                return p;
-            }
-        }
+    /// Échantillonnage analytique uniforme sur la sphère unité, sans rejet.
+    pub fn random_unit(rng: &mut SmallRng) -> Self {
+        let z = rng.random_range(-1.0f32..1.0);
+        let a = rng.random_range(0.0f32..std::f32::consts::TAU);
+        let r = (1.0 - z * z).sqrt();
+        Self::new(r * a.cos(), r * a.sin(), z)
     }
 
-    pub fn random_on_hemisphere(normal: &Vec3) -> Vec3 {
-        let unit_sphere = Self::random_unit();
-
-        if (unit_sphere.dot(normal) > 0.0) {
-            unit_sphere
-        } else {
-            unit_sphere * -1.0
-        }
+    /// Vrai si le vecteur est proche de zéro dans toutes ses dimensions.
+    pub fn near_zero(&self) -> bool {
+        const S: f32 = 1e-8;
+        self.x.abs() < S && self.y.abs() < S && self.z.abs() < S
     }
 }
 
