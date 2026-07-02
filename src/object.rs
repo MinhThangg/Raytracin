@@ -1,9 +1,9 @@
 use crate::{
     material::MaterialKind,
-    math::{Ray, Vec3},
+    math::{Interval, Ray, Vec3},
 };
 
-#[derive(Default, Clone, Copy)]
+#[derive(Clone, Copy)]
 pub struct HitRecord {
     pub p: Vec3,
     pub normal: Vec3,
@@ -52,31 +52,30 @@ impl HittableList {
         &self.materials[idx as usize]
     }
 
-    pub fn hit(&self, r: &Ray, ray_tmin: f32, ray_tmax: f32, hit_record: &mut HitRecord) -> bool {
-        let mut temp_rec = HitRecord::default();
-        let mut has_hit_anything = false;
-        let mut closest_so_far = ray_tmax;
+    pub fn hit(&self, r: &Ray, t: Interval) -> Option<HitRecord> {
+        let mut closest_so_far = t.max;
+        let mut closest: Option<HitRecord> = None;
 
         for object in &self.objects {
-            if object.hit(r, ray_tmin, closest_so_far, &mut temp_rec) {
-                has_hit_anything = true;
-                closest_so_far = temp_rec.t;
-                *hit_record = temp_rec;
+            if let Some(rec) = object.hit(r, Interval::new(t.min, closest_so_far)) {
+                closest_so_far = rec.t;
+                closest = Some(rec);
             }
         }
 
-        has_hit_anything
+        closest
     }
 }
 
 impl HitRecord {
-    fn set_face_normal(&mut self, r: &Ray, outward_normal: &Vec3) {
-        self.front_face = r.direction.dot(outward_normal) < 0.0;
-        self.normal = if self.front_face {
-            *outward_normal
+    fn set_face_normal(r: &Ray, outward_normal: Vec3) -> (bool, Vec3) {
+        let front_face = r.direction.dot(&outward_normal) < 0.0;
+        let normal = if front_face {
+            outward_normal
         } else {
-            *outward_normal * -1.0
+            -outward_normal
         };
+        (front_face, normal)
     }
 }
 
@@ -89,7 +88,7 @@ impl Sphere {
         }
     }
 
-    pub fn hit(&self, r: &Ray, ray_tmin: f32, ray_tmax: f32, hit_record: &mut HitRecord) -> bool {
+    pub fn hit(&self, r: &Ray, t: Interval) -> Option<HitRecord> {
         let oc = self.center - r.origin;
         let a = r.direction.length_squared();
         let half_b = r.direction.dot(&oc);
@@ -97,34 +96,37 @@ impl Sphere {
         let discriminant = (half_b * half_b) - (a * c);
 
         if discriminant < 0.0 {
-            return false;
+            return None;
         }
 
         let dsqrt = discriminant.sqrt();
 
         let mut root = (half_b - dsqrt) / a;
-        let t_range = ray_tmin..ray_tmax;
-        if !t_range.contains(&root) {
+        if !t.surrounds(root) {
             root = (half_b + dsqrt) / a;
-            if !t_range.contains(&root) {
-                return false;
+            if !t.surrounds(root) {
+                return None;
             }
         }
 
-        hit_record.t = root;
-        hit_record.p = r.at(root);
-        let outward_normal = (hit_record.p - self.center) * (1.0 / self.radius);
-        hit_record.set_face_normal(r, &outward_normal);
-        hit_record.mat_idx = self.mat_idx;
+        let p = r.at(root);
+        let outward_normal = (p - self.center) / self.radius;
+        let (front_face, normal) = HitRecord::set_face_normal(r, outward_normal);
 
-        true
+        Some(HitRecord {
+            t: root,
+            p,
+            normal,
+            front_face,
+            mat_idx: self.mat_idx,
+        })
     }
 }
 
 impl Object {
-    pub fn hit(&self, r: &Ray, ray_tmin: f32, ray_tmax: f32, hit_record: &mut HitRecord) -> bool {
+    pub fn hit(&self, r: &Ray, t: Interval) -> Option<HitRecord> {
         match self {
-            Object::Sphere(sphere) => sphere.hit(r, ray_tmin, ray_tmax, hit_record),
+            Object::Sphere(sphere) => sphere.hit(r, t),
         }
     }
 }

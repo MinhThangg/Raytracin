@@ -1,11 +1,10 @@
 use rand::{rngs::SmallRng, RngExt, SeedableRng};
 use rayon::prelude::*;
-use std::io::{self, Write};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use crate::{
-    math::{Color, Ray, Vec3},
-    object::{HitRecord, HittableList},
+    math::{Color, Interval, Ray, Vec3},
+    object::HittableList,
 };
 
 const IMAGE_WIDTH: i32 = 1920;
@@ -15,7 +14,7 @@ const FOCAL_LENGTH: f32 = 1.0;
 const VIEWPORT_HEIGHT: f32 = 2.0;
 const VIEWPORT_WIDTH: f32 = VIEWPORT_HEIGHT * (IMAGE_WIDTH as f32 / IMAGE_HEIGHT as f32);
 const SAMPLE_PER_PIXEL: i32 = 20;
-const MAX_DEPTH: i32 = 10;
+const MAX_DEPTH: i32 = 100;
 const BACKGROUND_TOP: Color = Color::new(0.5, 0.7, 1.0);
 const BACKGROUND_BOTTOM: Color = Color::new(1.0, 1.0, 1.0);
 const BLACK: Color = Color::new(0.0, 0.0, 0.0);
@@ -58,10 +57,15 @@ impl Camera {
         }
     }
 
-    pub fn render(&self, world: &HittableList, progress: Option<&AtomicUsize>) -> Vec<Color> {
+    pub fn render(
+        &self,
+        world: &HittableList,
+        on_row_done: Option<&(dyn Fn(usize, usize) + Sync)>,
+    ) -> Vec<Color> {
         let mut pixels = vec![Color::zero(); (self.image_width * self.image_height) as usize];
         let image_width = self.image_width as usize;
         let inv_sample_per_pixel = 1.0 / self.sample_per_pixel as f32;
+        let progress = AtomicUsize::new(0);
 
         pixels
             .par_chunks_mut(image_width)
@@ -74,33 +78,15 @@ impl Camera {
                     let mut color = Color::zero();
                     for _ in 0..self.sample_per_pixel {
                         let ray = self.get_ray(i, j, &mut rng);
-                        color = color + ray_color_iterative(&ray, world, self.max_depth, &mut rng);
+                        color += ray_color_iterative(&ray, world, self.max_depth, &mut rng);
                     }
                     row[i as usize] = color * inv_sample_per_pixel;
                 }
 
-                if let Some(progress) = progress {
+                if let Some(on_row_done) = on_row_done {
                     let done = progress.fetch_add(1, Ordering::Relaxed) + 1;
                     let total = self.image_height as usize;
-                    let bar_width = 40;
-                    let filled = done * bar_width / total;
-                    let percent = done * 100 / total;
-
-                    let mut stdout = io::stdout().lock();
-                    let _ = write!(
-                        stdout,
-                        "\r[{}{}] {:>3}% ({}/{})",
-                        "#".repeat(filled),
-                        " ".repeat(bar_width - filled),
-                        percent,
-                        done,
-                        total
-                    );
-                    let _ = stdout.flush();
-
-                    if done == total {
-                        let _ = writeln!(stdout);
-                    }
+                    on_row_done(done, total);
                 }
             });
 
@@ -128,22 +114,22 @@ fn ray_color_iterative(
     let mut accumulated_attenuation = Color::new(1.0, 1.0, 1.0);
 
     for _ in 0..max_depth {
-        let mut hr = HitRecord::default();
-        if !world.hit(&current_ray, 0.001, f32::INFINITY, &mut hr) {
-            let a = 0.5 * (current_ray.direction.normalized().y + 1.0);
-            return accumulated_attenuation
-                * (BACKGROUND_BOTTOM * (1.0 - a) + BACKGROUND_TOP * a);
-        }
-
-        let mut scattered = Ray::default();
-        let mut attenuation = Color::zero();
+        let hr = match world.hit(&current_ray, Interval::new(0.001, f32::INFINITY)) {
+            Some(hr) => hr,
+            None => {
+                let a = 0.5 * (current_ray.direction.normalized().y + 1.0);
+                return accumulated_attenuation
+                    * (BACKGROUND_BOTTOM * (1.0 - a) + BACKGROUND_TOP * a);
+            }
+        };
 
         let material = world.material(hr.mat_idx);
-        if material.scatter(&current_ray, &hr, &mut attenuation, &mut scattered, rng) {
-            accumulated_attenuation = accumulated_attenuation * attenuation;
-            current_ray = scattered;
-        } else {
-            return BLACK;
+        match material.scatter(&current_ray, &hr, rng) {
+            Some((attenuation, scattered)) => {
+                accumulated_attenuation = accumulated_attenuation * attenuation;
+                current_ray = scattered;
+            }
+            None => return BLACK,
         }
     }
 
