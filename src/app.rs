@@ -78,6 +78,11 @@ impl RaytracinApp {
 
         if self.settings.spp != self.camera.sample_per_pixel {
             self.camera.sample_per_pixel = self.settings.spp;
+            // Cible abaissée sous les passes déjà rendues : on relance le rendu ;
+            // sinon l'accumulation reste valide et continue vers la nouvelle cible.
+            if (self.passes as i32) > self.settings.spp {
+                self.reset_accumulation();
+            }
             self.saved = false;
         }
     }
