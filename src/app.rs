@@ -5,32 +5,6 @@ use crate::camera::Camera;
 use crate::math::Color;
 use crate::object::HittableList;
 
-/// Largeur fixe du panneau gauche.
-const PANEL_WIDTH: f32 = 260.0;
-/// Marge intérieure du CentralPanel, appliquée de chaque côté.
-const CENTRAL_MARGIN: f32 = 8.0;
-/// Côté maximal de la zone centrale utile (image carrée par défaut).
-const MAX_CENTRAL_SIZE: f32 = 764.0;
-/// Hauteur minimale de fenêtre : garde les sliders et le statut utilisables
-/// même pour une image très large (le ratio n'est alors plus exact).
-const MIN_WINDOW_HEIGHT: f32 = 300.0;
-
-/// Taille intérieure de fenêtre adaptée au ratio de l'image : la plus grande
-/// dimension occupe `MAX_CENTRAL_SIZE`, l'autre est mise à l'échelle par le ratio.
-fn window_inner_size(image_width: i32, image_height: i32) -> [f32; 2] {
-    let w = image_width as f32;
-    let h = image_height as f32;
-    let (central_w, central_h) = if w >= h {
-        (MAX_CENTRAL_SIZE, MAX_CENTRAL_SIZE * h / w)
-    } else {
-        (MAX_CENTRAL_SIZE * w / h, MAX_CENTRAL_SIZE)
-    };
-    [
-        PANEL_WIDTH + 2.0 * CENTRAL_MARGIN + central_w,
-        (central_h + 2.0 * CENTRAL_MARGIN).max(MIN_WINDOW_HEIGHT),
-    ]
-}
-
 /// Valeurs des sliders, appliquées à la caméra à chaque frame via `apply_settings`.
 struct Settings {
     width: i32,
@@ -81,7 +55,7 @@ impl RaytracinApp {
     }
 
     /// Applique les changements de sliders à la caméra et à l'état d'accumulation.
-    fn apply_settings(&mut self, ctx: &egui::Context) {
+    fn apply_settings(&mut self) {
         if self.settings.width != self.camera.image_width
             || self.settings.height != self.camera.image_height
         {
@@ -94,13 +68,6 @@ impl RaytracinApp {
             self.accum = vec![Color::zero(); (self.settings.width * self.settings.height) as usize];
             self.reset_accumulation();
             self.texture = None;
-
-            // Redimensionne la fenêtre au ratio de la nouvelle image pour éviter
-            // les bandes autour d'une image non carrée.
-            let size = window_inner_size(self.settings.width, self.settings.height);
-            ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::Vec2::new(
-                size[0], size[1],
-            )));
             return;
         }
 
@@ -172,7 +139,7 @@ impl RaytracinApp {
 impl eframe::App for RaytracinApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         egui::Panel::left("settings")
-            .exact_size(PANEL_WIDTH)
+            .exact_size(260.0)
             .resizable(false)
             .show(ui, |ui| {
                 // Édition des sliders : ils n'empruntent `self.settings` que le temps
@@ -191,7 +158,7 @@ impl eframe::App for RaytracinApp {
 
                 // Sliders édités → applique à la caméra, puis rends la passe :
                 // le statut affiché juste après reflète la passe de cette frame.
-                self.apply_settings(ui.ctx());
+                self.apply_settings();
                 self.advance_render(ui.ctx());
 
                 let target = self.camera.sample_per_pixel as u32;
@@ -228,8 +195,7 @@ impl eframe::App for RaytracinApp {
 /// a déjà été accumulé).
 pub fn run(camera: Camera, world: HittableList) -> eframe::Result {
     let native_options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default()
-            .with_inner_size(window_inner_size(camera.image_width, camera.image_height)),
+        viewport: egui::ViewportBuilder::default().with_inner_size([1040.0, 780.0]),
         ..Default::default()
     };
 
