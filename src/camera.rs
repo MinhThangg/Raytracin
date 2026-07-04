@@ -1,19 +1,18 @@
 use rand::{rngs::SmallRng, RngExt, SeedableRng};
 use rayon::prelude::*;
-use std::sync::atomic::{AtomicUsize, Ordering};
 
 use crate::{
     math::{Color, Interval, Ray, Vec3},
     object::HittableList,
 };
 
-const IMAGE_WIDTH: i32 = 1920;
-const IMAGE_HEIGHT: i32 = 1080;
+const IMAGE_WIDTH: i32 = 1000;
+const IMAGE_HEIGHT: i32 = 1000;
 
 const FOCAL_LENGTH: f32 = 1.0;
 const VIEWPORT_HEIGHT: f32 = 2.0;
 const VIEWPORT_WIDTH: f32 = VIEWPORT_HEIGHT * (IMAGE_WIDTH as f32 / IMAGE_HEIGHT as f32);
-const SAMPLE_PER_PIXEL: i32 = 20;
+const SAMPLE_PER_PIXEL: i32 = 100;
 const MAX_DEPTH: i32 = 100;
 const BACKGROUND_TOP: Color = Color::new(0.5, 0.7, 1.0);
 const BACKGROUND_BOTTOM: Color = Color::new(1.0, 1.0, 1.0);
@@ -57,38 +56,46 @@ impl Camera {
         }
     }
 
-    pub fn render(
-        &self,
-        world: &HittableList,
-        on_row_done: Option<&(dyn Fn(usize, usize) + Sync)>,
-    ) -> Vec<Color> {
-        let mut pixels = vec![Color::zero(); (self.image_width * self.image_height) as usize];
+    /// Effectue une passe de rendu (1 échantillon par pixel) et l'ACCUMULE dans `accum`.
+    /// `accum` doit persister entre les passes (longueur image_width*image_height,
+    /// même layout row-major que le buffer final). Le RNG est reseedé à partir de la
+    /// ligne ET du numéro de passe pour que chaque passe tire des échantillons différents.
+    pub fn render_pass(&self, world: &HittableList, accum: &mut [Color], pass: u32) {
         let image_width = self.image_width as usize;
-        let inv_sample_per_pixel = 1.0 / self.sample_per_pixel as f32;
-        let progress = AtomicUsize::new(0);
 
-        pixels
+        accum
             .par_chunks_mut(image_width)
             .enumerate()
             .for_each(|(j, row)| {
-                let mut rng = SmallRng::seed_from_u64(j as u64);
+                let mut rng = SmallRng::seed_from_u64(((j as u64) << 32) ^ pass as u64);
                 let j = j as i32;
 
                 for i in 0..self.image_width {
-                    let mut color = Color::zero();
-                    for _ in 0..self.sample_per_pixel {
-                        let ray = self.get_ray(i, j, &mut rng);
-                        color += ray_color_iterative(&ray, world, self.max_depth, &mut rng);
-                    }
-                    row[i as usize] = color * inv_sample_per_pixel;
-                }
-
-                if let Some(on_row_done) = on_row_done {
-                    let done = progress.fetch_add(1, Ordering::Relaxed) + 1;
-                    let total = self.image_height as usize;
-                    on_row_done(done, total);
+                    let ray = self.get_ray(i, j, &mut rng);
+                    row[i as usize] += ray_color_iterative(&ray, world, self.max_depth, &mut rng);
                 }
             });
+    }
+
+    pub fn render(
+        &self,
+        world: &HittableList,
+        on_pass_done: Option<&dyn Fn(usize, usize)>,
+    ) -> Vec<Color> {
+        let mut pixels = vec![Color::zero(); (self.image_width * self.image_height) as usize];
+        let inv_sample_per_pixel = 1.0 / self.sample_per_pixel as f32;
+        let total = self.sample_per_pixel as usize;
+
+        for pass in 0..self.sample_per_pixel {
+            self.render_pass(world, &mut pixels, pass as u32);
+            if let Some(on_pass_done) = on_pass_done {
+                on_pass_done(pass as usize + 1, total);
+            }
+        }
+
+        for pixel in &mut pixels {
+            *pixel *= inv_sample_per_pixel;
+        }
 
         pixels
     }

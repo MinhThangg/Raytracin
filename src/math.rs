@@ -172,11 +172,8 @@ impl ops::Div<f32> for Vec3 {
     type Output = Vec3;
 
     fn div(self, rhs: f32) -> Self::Output {
-        Vec3 {
-            x: self.x / rhs,
-            y: self.y / rhs,
-            z: self.z / rhs,
-        }
+        // Une division puis 3 multiplications : plus rapide que 3 divisions.
+        self * (1.0 / rhs)
     }
 }
 
@@ -198,6 +195,15 @@ impl ops::MulAssign<f32> for Vec3 {
 
 pub fn linear_to_gamma(x: f32) -> f32 {
     if x > 0.0 { x.sqrt() } else { 0.0 }
+}
+
+/// Convertit une couleur linéaire en RGB 8 bits avec correction gamma.
+pub fn color_to_rgb8(c: Color) -> [u8; 3] {
+    [
+        (linear_to_gamma(c.x.clamp(0.0, 0.99999)) * 256.0) as u8,
+        (linear_to_gamma(c.y.clamp(0.0, 0.99999)) * 256.0) as u8,
+        (linear_to_gamma(c.z.clamp(0.0, 0.99999)) * 256.0) as u8,
+    ]
 }
 
 #[derive(Clone, Copy)]
