@@ -7,3 +7,7 @@ edition = "2024"
 rand = "0.10.*"
 rayon = "1.11.*"
 image = { version = "0.25.*", default-features = false, features = ["png"] }
+clap = { version = "4.6.1", features = ["derive"] }
+# Backend glow (OpenGL) au lieu de wgpu : beaucoup moins de dépendances.
+eframe = { version = "0.35.0", default-features = false, features = ["glow", "default_fonts"] }
+egui = "0.35.0"
