@@ -101,6 +101,24 @@ impl RaytracinApp {
         }
     }
 
+    /// Fait avancer le rendu d'une passe (ou sauvegarde le PNG une fois la cible
+    /// atteinte). À appeler après `apply_settings` pour que l'état reflète les
+    /// sliders de la frame courante.
+    fn advance_render(&mut self, ctx: &egui::Context) {
+        let target = self.camera.sample_per_pixel as u32;
+
+        if self.passes < target {
+            self.camera
+                .render_pass(&self.world, &mut self.accum, self.passes);
+            self.passes += 1;
+            self.update_texture(ctx);
+            // Une seule passe par frame : on redemande un repaint pour enchaîner.
+            ctx.request_repaint();
+        } else if !self.saved {
+            self.save_current();
+        }
+    }
+
     /// Moyenne l'accumulation courante par le nombre de passes effectuées
     /// et écrit le PNG. Ne fait rien si aucune passe n'a encore eu lieu.
     fn save_current(&mut self) {
@@ -123,6 +141,9 @@ impl eframe::App for RaytracinApp {
         egui::Panel::left("settings")
             .default_size(260.0)
             .show(ui, |ui| {
+                // Édition des sliders : ils n'empruntent `self.settings` que le temps
+                // de leurs `ui.add`, ce qui laisse `apply_settings`/`advance_render`
+                // s'exécuter ensuite dans la même closure.
                 ui.add(egui::Slider::new(&mut self.settings.width, 100..=2000).text("Largeur"));
                 ui.add(egui::Slider::new(&mut self.settings.height, 100..=2000).text("Hauteur"));
                 ui.add(
@@ -133,31 +154,31 @@ impl eframe::App for RaytracinApp {
                 ui.add(
                     egui::Slider::new(&mut self.settings.depth, 1..=200).text("Profondeur max"),
                 );
+
+                // Sliders édités → applique à la caméra, puis rends la passe :
+                // le statut affiché juste après reflète la passe de cette frame.
+                self.apply_settings();
+                self.advance_render(ui.ctx());
+
+                let target = self.camera.sample_per_pixel as u32;
+
+                ui.separator();
+                ui.label(format!("Passe {}/{}", self.passes, target));
+                ui.add(
+                    egui::ProgressBar::new(self.passes as f32 / target as f32).show_percentage(),
+                );
+                if self.saved {
+                    ui.label("image.png enregistré");
+                }
             });
-        self.apply_settings();
-
-        let target = self.camera.sample_per_pixel as u32;
-
-        if self.passes < target {
-            self.camera
-                .render_pass(&self.world, &mut self.accum, self.passes);
-            self.passes += 1;
-            self.update_texture(ui.ctx());
-            // Une seule passe par frame : on redemande un repaint pour enchaîner.
-            ui.ctx().request_repaint();
-        } else if !self.saved {
-            self.save_current();
-        }
 
         egui::CentralPanel::default().show(ui, |ui| {
-            ui.label(format!("Passe {}/{}", self.passes, target));
-            ui.add(egui::ProgressBar::new(self.passes as f32 / target as f32).show_percentage());
-            if self.saved {
-                ui.label("image.png enregistré");
-            }
-            // L'image reste affichée (texture conservée) même une fois le rendu terminé.
+            // Seule l'image, centrée dans l'espace disponible pour des marges
+            // symétriques. La texture reste affichée même une fois le rendu terminé.
             if let Some(texture) = &self.texture {
-                ui.add(egui::Image::new(texture).shrink_to_fit());
+                ui.centered_and_justified(|ui| {
+                    ui.add(egui::Image::new(texture).shrink_to_fit());
+                });
             }
         });
     }
