@@ -139,7 +139,8 @@ impl RaytracinApp {
 impl eframe::App for RaytracinApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         egui::Panel::left("settings")
-            .default_size(260.0)
+            .exact_size(260.0)
+            .resizable(false)
             .show(ui, |ui| {
                 // Édition des sliders : ils n'empruntent `self.settings` que le temps
                 // de leurs `ui.add`, ce qui laisse `apply_settings`/`advance_render`
@@ -194,7 +195,7 @@ impl eframe::App for RaytracinApp {
 /// a déjà été accumulé).
 pub fn run(camera: Camera, world: HittableList) -> eframe::Result {
     let native_options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_inner_size([1040.0, 800.0]),
+        viewport: egui::ViewportBuilder::default().with_inner_size([1040.0, 780.0]),
         ..Default::default()
     };
 
