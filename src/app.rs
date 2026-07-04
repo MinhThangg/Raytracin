@@ -160,6 +160,9 @@ impl eframe::App for RaytracinApp {
                 ui.add(
                     egui::Slider::new(&mut self.settings.depth, 1..=200).text("Profondeur max"),
                 );
+                if ui.button("Relancer le rendu").clicked() {
+                    self.reset_accumulation();
+                }
 
                 // Sliders édités → applique à la caméra, puis rends la passe :
                 // le statut affiché juste après reflète la passe de cette frame.
