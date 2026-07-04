@@ -1,4 +1,4 @@
-use rand::{rngs::SmallRng, RngExt, SeedableRng};
+use rand::{RngExt, SeedableRng, rngs::SmallRng};
 use rayon::prelude::*;
 
 use crate::{
@@ -11,7 +11,6 @@ const IMAGE_HEIGHT: i32 = 1000;
 
 const FOCAL_LENGTH: f32 = 1.0;
 const VIEWPORT_HEIGHT: f32 = 2.0;
-const VIEWPORT_WIDTH: f32 = VIEWPORT_HEIGHT * (IMAGE_WIDTH as f32 / IMAGE_HEIGHT as f32);
 const SAMPLE_PER_PIXEL: i32 = 100;
 const MAX_DEPTH: i32 = 100;
 const BACKGROUND_TOP: Color = Color::new(0.5, 0.7, 1.0);
@@ -22,22 +21,23 @@ pub struct Camera {
     center: Vec3,
     pub image_width: i32,
     pub image_height: i32,
-    sample_per_pixel: i32,
-    max_depth: i32,
+    pub sample_per_pixel: i32,
+    pub max_depth: i32,
     pixel00_loc: Vec3,
     pixel_delta_u: Vec3,
     pixel_delta_v: Vec3,
 }
 
 impl Camera {
-    pub fn new() -> Self {
+    pub fn new(image_width: i32, image_height: i32, sample_per_pixel: i32, max_depth: i32) -> Self {
         let camera_center: Vec3 = Vec3::zero();
 
-        let viewport_u = Vec3::new(VIEWPORT_WIDTH, 0.0, 0.0);
+        let viewport_width = VIEWPORT_HEIGHT * (image_width as f32 / image_height as f32);
+        let viewport_u = Vec3::new(viewport_width, 0.0, 0.0);
         let viewport_v = Vec3::new(0.0, -VIEWPORT_HEIGHT, 0.0);
 
-        let pixel_delta_u = viewport_u * (1.0 / IMAGE_WIDTH as f32);
-        let pixel_delta_v = viewport_v * (1.0 / IMAGE_HEIGHT as f32);
+        let pixel_delta_u = viewport_u * (1.0 / image_width as f32);
+        let pixel_delta_v = viewport_v * (1.0 / image_height as f32);
         let viewport_upper_left = camera_center
             - Vec3::new(0.0, 0.0, FOCAL_LENGTH)
             - (viewport_u * 0.5)
@@ -46,10 +46,10 @@ impl Camera {
 
         Self {
             center: camera_center,
-            image_width: IMAGE_WIDTH,
-            image_height: IMAGE_HEIGHT,
-            sample_per_pixel: SAMPLE_PER_PIXEL,
-            max_depth: MAX_DEPTH,
+            image_width,
+            image_height,
+            sample_per_pixel,
+            max_depth,
             pixel00_loc,
             pixel_delta_u,
             pixel_delta_v,
@@ -100,11 +100,6 @@ impl Camera {
         pixels
     }
 
-    /// Nombre d'échantillons par pixel visé pour un rendu complet.
-    pub fn sample_per_pixel(&self) -> i32 {
-        self.sample_per_pixel
-    }
-
     fn get_ray(&self, i: i32, j: i32, rng: &mut SmallRng) -> Ray {
         let offsetx = rng.random_range(-0.5..0.5);
         let offsety = rng.random_range(-0.5..0.5);
@@ -116,12 +111,7 @@ impl Camera {
     }
 }
 
-fn ray_color_iterative(
-    r: &Ray,
-    world: &HittableList,
-    max_depth: i32,
-    rng: &mut SmallRng,
-) -> Color {
+fn ray_color_iterative(r: &Ray, world: &HittableList, max_depth: i32, rng: &mut SmallRng) -> Color {
     let mut current_ray = *r;
     let mut accumulated_attenuation = Color::new(1.0, 1.0, 1.0);
 
@@ -146,4 +136,10 @@ fn ray_color_iterative(
     }
 
     BLACK
+}
+
+impl Default for Camera {
+    fn default() -> Self {
+        Camera::new(IMAGE_WIDTH, IMAGE_HEIGHT, SAMPLE_PER_PIXEL, MAX_DEPTH)
+    }
 }

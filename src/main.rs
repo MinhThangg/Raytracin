@@ -12,7 +12,7 @@ use rayon::prelude::*;
 
 use crate::camera::Camera;
 use crate::material::{Dielectric, Lambertian, MaterialKind, Metal};
-use crate::math::{color_to_rgb8, Color, Vec3};
+use crate::math::{Color, Vec3, color_to_rgb8};
 use crate::object::{HittableList, Object, Sphere};
 use image::{ImageBuffer, Rgb};
 
@@ -116,13 +116,17 @@ fn run_headless(camera: Camera, world: HittableList) {
     };
     let image = camera.render(&world, Some(&on_pass_done));
 
-    save_png(&image, camera.image_width as u32, camera.image_height as u32);
+    save_png(
+        &image,
+        camera.image_width as u32,
+        camera.image_height as u32,
+    );
 }
 
 fn main() {
     let args = Args::parse();
 
-    let camera = Camera::new();
+    let camera = Camera::default();
     let world = build_world();
 
     if args.no_window {

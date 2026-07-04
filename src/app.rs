@@ -5,6 +5,14 @@ use crate::camera::Camera;
 use crate::math::Color;
 use crate::object::HittableList;
 
+/// Valeurs des sliders, appliquées à la caméra à chaque frame via `apply_settings`.
+struct Settings {
+    width: i32,
+    height: i32,
+    spp: i32,
+    depth: i32,
+}
+
 pub struct RaytracinApp {
     camera: Camera,
     world: HittableList,
@@ -12,11 +20,18 @@ pub struct RaytracinApp {
     passes: u32,
     saved: bool,
     texture: Option<egui::TextureHandle>,
+    settings: Settings,
 }
 
 impl RaytracinApp {
     fn new(camera: Camera, world: HittableList) -> Self {
         let pixel_count = (camera.image_width * camera.image_height) as usize;
+        let settings = Settings {
+            width: camera.image_width,
+            height: camera.image_height,
+            spp: camera.sample_per_pixel,
+            depth: camera.max_depth,
+        };
         Self {
             camera,
             world,
@@ -24,6 +39,46 @@ impl RaytracinApp {
             passes: 0,
             saved: false,
             texture: None,
+            settings,
+        }
+    }
+
+    /// Remet l'accumulation à zéro : à appeler chaque fois que l'intégrande change
+    /// (profondeur) ou que le buffer est réalloué (résolution), rendant les passes
+    /// déjà accumulées incomparables aux futures.
+    fn reset_accumulation(&mut self) {
+        for c in &mut self.accum {
+            *c = Color::zero();
+        }
+        self.passes = 0;
+        self.saved = false;
+    }
+
+    /// Applique les changements de sliders à la caméra et à l'état d'accumulation.
+    fn apply_settings(&mut self) {
+        if self.settings.width != self.camera.image_width
+            || self.settings.height != self.camera.image_height
+        {
+            self.camera = Camera::new(
+                self.settings.width,
+                self.settings.height,
+                self.settings.spp,
+                self.settings.depth,
+            );
+            self.accum = vec![Color::zero(); (self.settings.width * self.settings.height) as usize];
+            self.reset_accumulation();
+            self.texture = None;
+            return;
+        }
+
+        if self.settings.depth != self.camera.max_depth {
+            self.camera.max_depth = self.settings.depth;
+            self.reset_accumulation();
+        }
+
+        if self.settings.spp != self.camera.sample_per_pixel {
+            self.camera.sample_per_pixel = self.settings.spp;
+            self.saved = false;
         }
     }
 
@@ -65,7 +120,23 @@ impl RaytracinApp {
 
 impl eframe::App for RaytracinApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
-        let target = self.camera.sample_per_pixel() as u32;
+        egui::Panel::left("settings")
+            .default_size(260.0)
+            .show(ui, |ui| {
+                ui.add(egui::Slider::new(&mut self.settings.width, 100..=2000).text("Largeur"));
+                ui.add(egui::Slider::new(&mut self.settings.height, 100..=2000).text("Hauteur"));
+                ui.add(
+                    egui::Slider::new(&mut self.settings.spp, 1..=1000)
+                        .logarithmic(true)
+                        .text("Échantillons/pixel"),
+                );
+                ui.add(
+                    egui::Slider::new(&mut self.settings.depth, 1..=200).text("Profondeur max"),
+                );
+            });
+        self.apply_settings();
+
+        let target = self.camera.sample_per_pixel as u32;
 
         if self.passes < target {
             self.camera
@@ -80,9 +151,7 @@ impl eframe::App for RaytracinApp {
 
         egui::CentralPanel::default().show(ui, |ui| {
             ui.label(format!("Passe {}/{}", self.passes, target));
-            ui.add(
-                egui::ProgressBar::new(self.passes as f32 / target as f32).show_percentage(),
-            );
+            ui.add(egui::ProgressBar::new(self.passes as f32 / target as f32).show_percentage());
             if self.saved {
                 ui.label("image.png enregistré");
             }
@@ -104,7 +173,7 @@ impl eframe::App for RaytracinApp {
 /// a déjà été accumulé).
 pub fn run(camera: Camera, world: HittableList) -> eframe::Result {
     let native_options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_inner_size([720.0, 800.0]),
+        viewport: egui::ViewportBuilder::default().with_inner_size([1040.0, 800.0]),
         ..Default::default()
     };
 
