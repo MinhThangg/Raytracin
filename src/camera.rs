@@ -100,6 +100,11 @@ impl Camera {
         pixels
     }
 
+    /// Nombre d'échantillons par pixel visé pour un rendu complet.
+    pub fn sample_per_pixel(&self) -> i32 {
+        self.sample_per_pixel
+    }
+
     fn get_ray(&self, i: i32, j: i32, rng: &mut SmallRng) -> Ray {
         let offsetx = rng.random_range(-0.5..0.5);
         let offsety = rng.random_range(-0.5..0.5);
