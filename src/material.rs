@@ -8,6 +8,7 @@ use crate::{
 #[derive(Clone, Copy)]
 pub enum MaterialKind {
     Lambertian(Lambertian),
+    Checker(Checker),
     Metal(Metal),
     Dielectric(Dielectric),
 }
@@ -15,6 +16,15 @@ pub enum MaterialKind {
 #[derive(Clone, Copy, Default)]
 pub struct Lambertian {
     pub albedo: Color,
+}
+
+/// Lambertien en damier : alterne deux albedos selon la position du point touché.
+#[derive(Clone, Copy)]
+pub struct Checker {
+    pub albedo_even: Color,
+    pub albedo_odd: Color,
+    /// Côté d'une case du damier, en unités de la scène.
+    pub scale: f32,
 }
 
 #[derive(Clone, Copy)]
@@ -46,6 +56,39 @@ impl Lambertian {
         }
         let scattered = Ray::new(hr.p, direction);
         Some((self.albedo, scattered))
+    }
+}
+
+impl Checker {
+    pub fn new(albedo_even: Color, albedo_odd: Color, scale: f32) -> Self {
+        Self {
+            albedo_even,
+            albedo_odd,
+            scale,
+        }
+    }
+
+    pub fn scatter(
+        &self,
+        _r_in: &Ray,
+        hr: &HitRecord,
+        rng: &mut SmallRng,
+    ) -> Option<(Color, Ray)> {
+        let inv = 1.0 / self.scale;
+        let parity = (hr.p.x * inv).floor() + (hr.p.y * inv).floor() + (hr.p.z * inv).floor();
+        let albedo = if (parity as i64) % 2 == 0 {
+            self.albedo_even
+        } else {
+            self.albedo_odd
+        };
+
+        let mut direction = hr.normal + Vec3::random_unit(rng);
+        // Évite une direction dégénérée (nulle) si le tirage annule la normale.
+        if direction.near_zero() {
+            direction = hr.normal;
+        }
+        let scattered = Ray::new(hr.p, direction);
+        Some((albedo, scattered))
     }
 }
 
@@ -122,6 +165,7 @@ impl MaterialKind {
     ) -> Option<(Color, Ray)> {
         match self {
             MaterialKind::Lambertian(material) => material.scatter(r_in, hr, rng),
+            MaterialKind::Checker(material) => material.scatter(r_in, hr, rng),
             MaterialKind::Metal(material) => material.scatter(r_in, hr, rng),
             MaterialKind::Dielectric(material) => material.scatter(r_in, hr, rng),
         }
