@@ -5,11 +5,12 @@ mod object;
 
 use std::fs::File;
 use std::io::{self, BufWriter, Write};
-use std::sync::atomic::{AtomicUsize, Ordering};
+
+use rayon::prelude::*;
 
 use crate::camera::Camera;
 use crate::material::{Dielectric, Lambertian, MaterialKind, Metal};
-use crate::math::{linear_to_gamma, Color, Vec3};
+use crate::math::{color_to_rgb8, Color, Vec3};
 use crate::object::{HittableList, Object, Sphere};
 use image::{ImageBuffer, Rgb};
 
@@ -59,40 +60,29 @@ fn main() {
     )));
     // test
 
-    let last_percent = AtomicUsize::new(0);
     let bar_width = 40usize;
-    let on_row_done = |done: usize, total: usize| {
+    let on_pass_done = |done: usize, total: usize| {
         let percent = done * 100 / total;
-        let previous = last_percent.fetch_max(percent, Ordering::Relaxed);
-        // N'affiche que si le pourcentage entier affiché a changé.
-        if percent > previous || done == total {
-            let filled = done * bar_width / total;
-            let mut stdout = io::stdout().lock();
-            let _ = write!(
-                stdout,
-                "\r[{}{}] {:>3}% ({}/{})",
-                "#".repeat(filled),
-                " ".repeat(bar_width - filled),
-                percent,
-                done,
-                total
-            );
-            let _ = stdout.flush();
+        let filled = done * bar_width / total;
+        let mut stdout = io::stdout().lock();
+        let _ = write!(
+            stdout,
+            "\r[{}{}] {:>3}% ({}/{})",
+            "#".repeat(filled),
+            " ".repeat(bar_width - filled),
+            percent,
+            done,
+            total
+        );
+        let _ = stdout.flush();
 
-            if done == total {
-                let _ = writeln!(stdout);
-            }
+        if done == total {
+            let _ = writeln!(stdout);
         }
     };
-    let image = camera.render(&world, Some(&on_row_done));
+    let image = camera.render(&world, Some(&on_pass_done));
 
-    let mut buffer = Vec::with_capacity((camera.image_width * camera.image_height * 3) as usize);
-    for c in &image {
-        let r = (linear_to_gamma(c.x.clamp(0.0, 0.99999)) * 256.0) as u8;
-        let g = (linear_to_gamma(c.y.clamp(0.0, 0.99999)) * 256.0) as u8;
-        let b = (linear_to_gamma(c.z.clamp(0.0, 0.99999)) * 256.0) as u8;
-        buffer.extend_from_slice(&[r, g, b]);
-    }
+    let buffer: Vec<u8> = image.par_iter().copied().flat_map_iter(color_to_rgb8).collect();
 
     let image = ImageBuffer::<Rgb<u8>, _>::from_raw(
         camera.image_width as u32,
