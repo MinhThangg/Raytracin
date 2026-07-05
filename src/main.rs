@@ -11,9 +11,9 @@ use clap::Parser;
 use rayon::prelude::*;
 
 use crate::camera::Camera;
-use crate::material::{Dielectric, Lambertian, MaterialKind, Metal};
+use crate::material::{Checker, Dielectric, Lambertian, MaterialKind, Metal};
 use crate::math::{color_to_rgb8, Color, Vec3};
-use crate::object::{HittableList, Object, Sphere};
+use crate::object::{HittableList, Object, Plane, Sphere};
 use image::{ImageBuffer, Rgb};
 
 #[derive(Parser)]
@@ -31,9 +31,11 @@ fn build_world() -> HittableList {
     let lamb1 = world.add_material(MaterialKind::Lambertian(Lambertian::new(Color::new(
         1.0, 1.0, 0.0,
     ))));
-    let lamb2 = world.add_material(MaterialKind::Lambertian(Lambertian::new(Color::new(
-        1.0, 1.0, 1.0,
-    ))));
+    let checker = world.add_material(MaterialKind::Checker(Checker::new(
+        Color::new(0.9, 0.9, 0.9),
+        Color::new(0.45, 0.45, 0.45),
+        0.5,
+    )));
     let metal1 = world.add_material(MaterialKind::Metal(Metal::new(
         Color::new(0.5, 0.5, 0.5),
         0.0,
@@ -51,10 +53,10 @@ fn build_world() -> HittableList {
         0.6,
         metal1,
     )));
-    world.add(Object::Sphere(Sphere::new(
-        Vec3::new(0.0, -100.5, -1.0),
-        100.0,
-        lamb2,
+    world.add(Object::Plane(Plane::new(
+        Vec3::new(0.0, -0.5, 0.0),
+        Vec3::new(0.0, 1.0, 0.0),
+        checker,
     )));
     world.add(Object::Sphere(Sphere::new(
         Vec3::new(-1.0, 0.0, -1.0),
