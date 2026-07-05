@@ -83,7 +83,6 @@ impl RaytracinApp {
             if (self.passes as i32) > self.settings.spp {
                 self.reset_accumulation();
             }
-            self.saved = false;
         }
     }
 
@@ -106,9 +105,9 @@ impl RaytracinApp {
         }
     }
 
-    /// Fait avancer le rendu d'une passe (ou sauvegarde le PNG une fois la cible
-    /// atteinte). À appeler après `apply_settings` pour que l'état reflète les
-    /// sliders de la frame courante.
+    /// Fait avancer le rendu d'une passe. À appeler après `apply_settings` pour
+    /// que l'état reflète les sliders de la frame courante. N'écrit pas le PNG :
+    /// la sauvegarde se fait via le bouton ou à la fermeture.
     fn advance_render(&mut self, ctx: &egui::Context) {
         let target = self.camera.sample_per_pixel as u32;
 
@@ -116,11 +115,11 @@ impl RaytracinApp {
             self.camera
                 .render_pass(&self.world, &mut self.accum, self.passes);
             self.passes += 1;
+            // Le PNG sur disque (s'il existe) ne correspond plus à l'image affichée.
+            self.saved = false;
             self.update_texture(ctx);
             // Une seule passe par frame : on redemande un repaint pour enchaîner.
             ctx.request_repaint();
-        } else if !self.saved {
-            self.save_current();
         }
     }
 
@@ -162,6 +161,9 @@ impl eframe::App for RaytracinApp {
                 );
                 if ui.button("Relancer le rendu").clicked() {
                     self.reset_accumulation();
+                }
+                if ui.button("Enregistrer l'image").clicked() {
+                    self.save_current();
                 }
 
                 // Sliders édités → applique à la caméra, puis rends la passe :
