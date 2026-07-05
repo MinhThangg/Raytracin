@@ -19,9 +19,18 @@ pub struct Sphere {
     pub mat_idx: u32,
 }
 
+/// Plan infini défini par un point et une normale (unitaire).
+#[derive(Clone, Copy)]
+pub struct Plane {
+    pub point: Vec3,
+    pub normal: Vec3,
+    pub mat_idx: u32,
+}
+
 #[derive(Clone, Copy)]
 pub enum Object {
     Sphere(Sphere),
+    Plane(Plane),
 }
 
 pub struct HittableList {
@@ -123,10 +132,45 @@ impl Sphere {
     }
 }
 
+impl Plane {
+    pub fn new(point: Vec3, normal: Vec3, mat_idx: u32) -> Self {
+        Self {
+            point,
+            normal: normal.normalized(),
+            mat_idx,
+        }
+    }
+
+    pub fn hit(&self, r: &Ray, t: Interval) -> Option<HitRecord> {
+        let denom = r.direction.dot(&self.normal);
+        // Rayon parallèle au plan : pas d'intersection.
+        if denom.abs() < 1e-8 {
+            return None;
+        }
+
+        let root = (self.point - r.origin).dot(&self.normal) / denom;
+        if !t.surrounds(root) {
+            return None;
+        }
+
+        let p = r.at(root);
+        let (front_face, normal) = HitRecord::set_face_normal(r, self.normal);
+
+        Some(HitRecord {
+            t: root,
+            p,
+            normal,
+            front_face,
+            mat_idx: self.mat_idx,
+        })
+    }
+}
+
 impl Object {
     pub fn hit(&self, r: &Ray, t: Interval) -> Option<HitRecord> {
         match self {
             Object::Sphere(sphere) => sphere.hit(r, t),
+            Object::Plane(plane) => plane.hit(r, t),
         }
     }
 }
