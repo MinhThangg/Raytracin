@@ -10,12 +10,14 @@ const IMAGE_WIDTH: i32 = 1000;
 const IMAGE_HEIGHT: i32 = 1000;
 
 const FOCAL_LENGTH: f32 = 1.0;
-const VIEWPORT_HEIGHT: f32 = 2.0;
 const SAMPLE_PER_PIXEL: i32 = 100;
 const MAX_DEPTH: i32 = 100;
 const BACKGROUND_TOP: Color = Color::new(0.5, 0.7, 1.0);
 const BACKGROUND_BOTTOM: Color = Color::new(1.0, 1.0, 1.0);
 const BLACK: Color = Color::new(0.0, 0.0, 0.0);
+
+const LOOK_FROM: Vec3 = Vec3::new(-2.0, 2.0, 1.0);
+const LOOK_AT: Vec3 = Vec3::new(0.0, 0.0, -1.0);
 
 pub struct Camera {
     center: Vec3,
@@ -30,18 +32,27 @@ pub struct Camera {
 
 impl Camera {
     pub fn new(image_width: i32, image_height: i32, sample_per_pixel: i32, max_depth: i32) -> Self {
-        let camera_center: Vec3 = Vec3::zero();
+        let camera_center: Vec3 = LOOK_FROM;
+        let focal_length = (LOOK_AT - LOOK_FROM).length();
 
-        let viewport_width = VIEWPORT_HEIGHT * (image_width as f32 / image_height as f32);
-        let viewport_u = Vec3::new(viewport_width, 0.0, 0.0);
-        let viewport_v = Vec3::new(0.0, -VIEWPORT_HEIGHT, 0.0);
+        let theta = f32::to_radians(40.0);
+        let h = f32::tan(theta/2.0);
+        let viewport_height = 2.0 * h * focal_length;
+        let viewport_width = viewport_height * (image_width as f32 / image_height as f32);
+
+        let w = (LOOK_FROM - LOOK_AT).normalized();
+        let u = Vec3::new(0.0, 1.0, 0.0).cross(&w).normalized();
+        let v = w.cross(&u);
+
+        let viewport_u = viewport_width * u;
+        let viewport_v = viewport_height * -v;
 
         let pixel_delta_u = viewport_u * (1.0 / image_width as f32);
         let pixel_delta_v = viewport_v * (1.0 / image_height as f32);
         let viewport_upper_left = camera_center
-            - Vec3::new(0.0, 0.0, FOCAL_LENGTH)
-            - (viewport_u * 0.5)
-            - (viewport_v * 0.5);
+            - focal_length * w
+            - (viewport_u / 2.0)
+            - (viewport_v / 2.0);
         let pixel00_loc = viewport_upper_left + (pixel_delta_u + pixel_delta_v) * 0.5;
 
         Self {

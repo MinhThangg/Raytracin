@@ -60,7 +60,7 @@ fn build_world() -> HittableList {
     )));
     world.add(Object::Sphere(Sphere::new(
         Vec3::new(-1.0, 0.0, -1.0),
-        0.5,
+        0.45,
         glass,
     )));
     world.add(Object::Sphere(Sphere::new(
